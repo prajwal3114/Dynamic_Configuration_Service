@@ -2,15 +2,15 @@ import express from "express";
 import dotenv from "dotenv";
 import connectDB from "./Src/config/db.js";
 import authRoutes from "./Src/routes/auth.routes.js";
+import projectRoutes from "./Src/routes/project.routes.js";
 
 dotenv.config();
 
 const app = express();
 
-/* JSON parser */
 app.use(express.json());
 
-/* DEBUG (keep for now) */
+/* optional debug */
 app.use((req, res, next) => {
   console.log("METHOD:", req.method);
   console.log("CONTENT-TYPE:", req.headers["content-type"]);
@@ -23,6 +23,7 @@ connectDB();
 
 /* ROUTES */
 app.use("/auth", authRoutes);
+app.use("/projects", projectRoutes);
 
 app.get("/", (req, res) => {
   res.send("Hello, World!");
