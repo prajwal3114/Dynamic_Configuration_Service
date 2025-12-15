@@ -1,54 +1,104 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
-import user from "../models/user.model.js";
-import organization from "../models/organization.model.js";
-import orgmember from "../models/orgmember.model.js";
+import User from "../models/user.model.js";
+import Organization from "../models/organization.model.js";
+import OrgMember from "../models/orgmember.model.js";
 
 export const register = async (req, res) => {
-    try {
-        const { email, password } = req.body;
-    
-        if (!email || !password) {
-          return res.status(400).json({
-            message: "Email and password are required"
-          });
-        }
+  try {
+    const { email, password } = req.body;
 
-        const alreadyPresent = await user.findOne({ email });
-        if (alreadyPresent) {
-          return res.status(400).json({
-            message: "User already exists"
-          });
-        }
+    if (!email || !password) {
+      return res.status(400).json({
+        message: "Email and password are required"
+      });
+    }
 
-        const hashpassword = await bcrypt.hash(password, 10);
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({
+        message: "User already exists"
+      });
+    }
 
-        const newUser = await user.create({
-          email,
-          passwordHash: hashpassword
-        });
+    const passwordHash = await bcrypt.hash(password, 10);
 
-        const newOrg = await organization.create({
-          name: `${email}'s Organization`
-        });
+    const newUser = await User.create({
+      email,
+      passwordHash
+    });
 
-        await orgmember.create({
-          userId: newUser._id,
-          orgId: newOrg._id,
-          role: "OWNER"
-        });
+    const slug =
+      email.split("@")[0].toLowerCase() + "-" + Date.now();
 
-        res.status(201).json({
-          message: "User registered successfully"
-        });
-    
-      } catch (error) {
-        console.error(error);
-        res.status(500).json({
-          message: "Internal server error"
-        });
-      }
-    res.send("Register controller reached");
-  };
-  
+    const newOrg = await Organization.create({
+      name: `${email}'s Organization`,
+      slug
+    });
+
+    await OrgMember.create({
+      userId: newUser._id,
+      orgId: newOrg._id,
+      role: "OWNER"
+    });
+
+    const token = jwt.sign(
+      { id: newUser._id },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    return res.status(201).json({
+      token
+    });
+
+  } catch (err) {
+    console.error("REGISTER ERROR:", err);
+    return res.status(500).json({
+      message: "Internal server error"
+    });
+  }
+};
+
+export const login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        message: "Email and password are required"
+      });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(401).json({
+        message: "Invalid credentials"
+      });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.passwordHash);
+    if (!isMatch) {
+      return res.status(401).json({
+        message: "Invalid credentials"
+      });
+    }
+
+    const token = jwt.sign(
+      { id: user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    return res.status(200).json({
+      token
+    });
+
+  } catch (err) {
+    console.error("LOGIN ERROR:", err);
+    return res.status(500).json({
+      message: "Internal server error"
+    });
+  }
+};
