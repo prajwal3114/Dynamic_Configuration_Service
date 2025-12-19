@@ -4,7 +4,7 @@ import connectDB from "./Src/config/db.js";
 import authRoutes from "./Src/routes/auth.routes.js";
 import projectRoutes from "./Src/routes/project.routes.js";
 import flagRoutes from "./Src/routes/flags.routes.js";
-
+import evaluaterouter from "./Src/routes/evaluate.routes.js";
 dotenv.config();
 
 const app=express();
@@ -26,7 +26,7 @@ connectDB();
 app.use("/auth",authRoutes);
 app.use("/projects",projectRoutes);
 app.use("/projects",flagRoutes);
-
+app.use("/evaluate",evaluaterouter);
 app.get("/",(req,res)=>{
   res.send("Hello, World!");
 });
