@@ -1,22 +1,52 @@
 export const evaluateFlag = (flag, context) => {
-  // 1. Global off
+  // 1. Flag globally disabled
   if (!flag.enabled) {
     return {
       enabled: false,
-      value: flag.defaultValue
+      value: flag.defaultValue,
+      reason: "FLAG_DISABLED"
     };
   }
 
-  // 2. Rules (only equals for now)
+  // 2. Rule evaluation
   if (Array.isArray(flag.rules)) {
     for (const rule of flag.rules) {
-      if (
-        rule.operator === "equals" &&
-        context[rule.field] === rule.value
-      ) {
+      const ctxValue = context[rule.field];
+      let matched = false;
+
+      switch (rule.operator) {
+        case "equals":
+          matched = ctxValue === rule.value;
+          break;
+
+        case "not_equals":
+          matched = ctxValue !== rule.value;
+          break;
+
+        case "in":
+          if (Array.isArray(rule.value)) {
+            matched = rule.value.includes(ctxValue);
+          }
+          break;
+
+        case "contains":
+          if (typeof ctxValue === "string" && typeof rule.value === "string") {
+            matched = ctxValue.includes(rule.value);
+          }
+          if (Array.isArray(ctxValue)) {
+            matched = ctxValue.includes(rule.value);
+          }
+          break;
+
+        default:
+          matched = false;
+      }
+
+      if (matched) {
         return {
           enabled: true,
-          value: rule.serveValue
+          value: rule.serveValue,
+          reason: "RULE_MATCH"
         };
       }
     }
@@ -31,7 +61,7 @@ export const evaluateFlag = (flag, context) => {
     const hash =
       Math.abs(
         [...(context.userId + flag.key)].reduce(
-          (a, c) => a + c.charCodeAt(0),
+          (sum, ch) => sum + ch.charCodeAt(0),
           0
         )
       ) % 100;
@@ -39,14 +69,16 @@ export const evaluateFlag = (flag, context) => {
     if (hash < flag.rollout.percentage) {
       return {
         enabled: true,
-        value: flag.defaultValue
+        value: flag.defaultValue,
+        reason: "ROLLOUT_MATCH"
       };
     }
   }
 
-  // 4. Default
+  // 4. Default fallback
   return {
     enabled: false,
-    value: flag.defaultValue
+    value: flag.defaultValue,
+    reason: "DEFAULT_FALLBACK"
   };
 };
